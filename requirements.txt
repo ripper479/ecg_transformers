@@ -2,7 +2,5 @@ numpy
 scipy
 scikit-learn
 matplotlib
-keras
 pandas
 tqdm
-tensorflow

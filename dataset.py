@@ -2,7 +2,6 @@ import numpy as np
 from numpy.core.numeric import indices
 from scipy import signal
 from scipy.signal import decimate, resample_poly
-from keras.preprocessing.sequence import pad_sequences
 from torch.utils.data import Dataset
 import torch
 import os
@@ -70,6 +69,11 @@ def resample_ecg(trace, input_freq, output_freq):
     else:
         new_trace = resample_poly(trace, up=output_freq, down=input_freq, axis=-1)
     return new_trace
+def pad_sequence(x,length):
+  pad_x = np.zeros(length,dtype=float)
+  for i in range(min(length,len(x))):
+    pad_x[i]=x[i]
+  return pad_x
 
 # Preprocessing method
 def get_transformed_data(ecg_raw,fs):
@@ -80,7 +84,9 @@ def get_transformed_data(ecg_raw,fs):
     ecg_new = []
     for i in range(len(ecg_filtered)):
         ecg_new.append(resample_ecg(ecg_filtered[i],int(fs),500))
-    ecg_filtered_padded = pad_sequences(ecg_new, maxlen=5000, truncating='post',padding="post")
+    ecg_filtered_padded = []
+    for i in range(len(ecg_new)):
+        ecg_filtered_padded.append(pad_sequence(ecg_new[i],5000))
     ecg_final = []
     for i in range(len(ecg_filtered_padded)):
       x = (ecg_filtered_padded[i] - np.min(ecg_filtered_padded[i])) / (np.max(ecg_filtered_padded[i]) - np.min(ecg_filtered_padded[i]))
