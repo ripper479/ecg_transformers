@@ -1,3 +1,4 @@
+from helper_code import get_frequency, load_recording, load_header
 import numpy as np
 from numpy.core.numeric import indices
 from scipy import signal
@@ -5,6 +6,7 @@ from scipy.signal import decimate, resample_poly
 from torch.utils.data import Dataset
 import torch
 import os
+import warnings
 # Filtering method
 
 def _norm_freq(frequency=None, sampling_rate=500.):
@@ -77,6 +79,7 @@ def pad_sequence(x,length):
 
 # Preprocessing method
 def get_transformed_data(ecg_raw,fs):
+    warnings.filterwarnings("ignore")
     ecg_filtered = []
     for i in range(len(ecg_raw)):
       x = filter_ecg(ecg_raw[i],500)
@@ -93,18 +96,29 @@ def get_transformed_data(ecg_raw,fs):
       ecg_final.append(x)
     return np.array(ecg_final)
 
+def get_preprocessed_data(x,fs):
+    x = get_transformed_data(x,fs)
+    # replacing nan values to zero
+    x = np.nan_to_num(x,copy=False)
+    return x
+
 
 # Dataset Class
 
 class ECG_Dataset(Dataset):
-    def __init__(self, idx_list):
+    def __init__(self, idx_list,lbls,recording_files,header_files):
         self.idx_list = idx_list
+        self.lbls = lbls
+        self.recording_files = recording_files
+        self.header_files = header_files
 
     def __getitem__(self, index):
         idx = self.idx_list[index]
-        file_name = str(idx)+".npy"
-        data = np.load(os.path.join("data_processed", file_name))
-        label = np.load(os.path.join("labels_processed", file_name))
+        data = load_recording(self.recording_files[idx])
+        label = self.lbls[idx]
+        header = load_header(self.header_files[idx])
+        fs = get_frequency(header)
+        data = get_preprocessed_data(data,fs)
         x = torch.from_numpy(data).float()
         y = torch.from_numpy(label).float()
         return x , y

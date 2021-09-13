@@ -92,18 +92,21 @@ def test(model, test_loader, device):
         all_logits[i] = (all_logits[i] >= 0.5).astype(np.int)
     return all_labels,all_logits
 
-def get_no_scored_labels(lbls):
+def get_scored_labels_index(lbls):
     cnt = 0
-    for x in lbls:
-        if np.sum(x)==0:
+    index = []
+    for i in range(len(lbls)):
+        if np.sum(lbls[i])==0:
             cnt = cnt + 1
+        else :
+            index.append(i)
     print("No. of recording which doesn't have any scored labels are ",cnt)
+    return index
 
-def plot_labels_hist(idx_list,name,classes_short,dest):
+def plot_labels_hist(idx_list,name,classes_short,dest,lbls):
   count = np.zeros(len(classes_short),dtype=int)
   for x in tqdm(idx_list):
-    file_name = str(x)+".npy"
-    label = np.load(os.path.join("labels_processed", file_name))
+    label = lbls[x]
     for i in range(len(label)):
       count[i] = count[i] + label[i]
   plt.figure(figsize=(35,10))
@@ -151,43 +154,42 @@ def training_code(data_directory, save_directory):
     lbls = load_labels(header_files, classes)
 
     # Checking how many recordings doesn't have any scored labels
-    get_no_scored_labels(lbls)
+    indices = get_scored_labels_index(lbls)
 
-    # Making directories for preprocessed data
-    os.mkdir("data_processed")
-    os.mkdir("labels_processed")
 
-    # Preprocessing and saving the data
-    print("Preprocessing and saving the data")
-    cnt = 0
-    for i in tqdm(range(len(recording_files))):
-        if np.sum(lbls[i])==0:
-            continue
-        recording = load_recording(recording_files[i])
-        header = load_header(header_files[i])
-        fs = get_frequency(header)
-        recording = get_transformed_data(recording,fs)
-        flag = 1
-        for j in range(len(recording)):
-            if(np.isnan(recording[j]).any()):
-                flag = 0
-                break
-        if flag:
-            np.save(os.path.join("data_processed", str(cnt)), recording)
-            np.save(os.path.join("labels_processed", str(cnt)), lbls[i])
-            cnt = cnt + 1
+    # # Preprocessing and saving the data
+    # print("Preprocessing and saving the data")
+    # cnt = 0
+    # for i in tqdm(range(len(recording_files))):
+    #     if np.sum(lbls[i])==0:
+    #         continue
+    #     recording = load_recording(recording_files[i])
+    #     header = load_header(header_files[i])
+    #     fs = get_frequency(header)
+    #     recording = get_transformed_data(recording,fs)
+    #     flag = 1
+    #     for j in range(len(recording)):
+    #         if(np.isnan(recording[j]).any()):
+    #             flag = 0
+    #             break
+    #     if flag:
+    #         np.save(os.path.join("data_processed", str(cnt)), recording)
+    #         np.save(os.path.join("labels_processed", str(cnt)), lbls[i])
+    #         cnt = cnt + 1
+
+
+    cnt = len(indices)
     print("There are a total of {:d} recording for Train Valid and Test".format(cnt))
 
 
     # Splitting into 70% 10% and 20%
-    indices = np.arange(cnt)
     train_idx, rem_idx = train_test_split(indices, test_size=0.3,random_state=42)
     val_idx,test_idx = train_test_split(rem_idx, test_size = 0.66,random_state=42)
 
     #Plotting the Train Valid and Test distribution
-    plot_labels_hist(train_idx,"Train",classes_short,save_directory)
-    plot_labels_hist(val_idx,"Valid",classes_short,save_directory)
-    plot_labels_hist(test_idx,"Test",classes_short,save_directory)
+    plot_labels_hist(train_idx,"Train",classes_short,save_directory,lbls)
+    plot_labels_hist(val_idx,"Valid",classes_short,save_directory,lbls)
+    plot_labels_hist(test_idx,"Test",classes_short,save_directory,lbls)
 
     # HyperParameters
     batch_size = 128
@@ -209,9 +211,9 @@ def training_code(data_directory, save_directory):
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
     model = model.to(device)
-    train_dataset = ECG_Dataset(train_idx)
-    valid_dataset = ECG_Dataset(val_idx)
-    test_dataset = ECG_Dataset(test_idx)
+    train_dataset = ECG_Dataset(train_idx,lbls,recording_files,header_files)
+    valid_dataset = ECG_Dataset(val_idx,lbls,recording_files,header_files)
+    test_dataset = ECG_Dataset(test_idx,lbls,recording_files,header_files)
     train_dl = DataLoader(train_dataset, batch_size=batch_size, shuffle= True,num_workers=4)
     valid_dl = DataLoader(valid_dataset, batch_size=batch_size, shuffle= False,num_workers=4)
     test_dl = DataLoader(test_dataset, batch_size=batch_size, shuffle= False,num_workers=4)
