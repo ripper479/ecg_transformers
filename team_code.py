@@ -132,12 +132,6 @@ def plot_test_f1(arr,classes_short,dest):
     plt.savefig(os.path.join(dest,"Test_F1_Score.png"))
 
 def training_code(data_directory, save_directory):
-    print('Finding header and recording files...')
-    header_files, recording_files = find_challenge_files(data_directory)
-    num_recordings = len(recording_files)
-    if not num_recordings:
-        raise Exception('No data was provided.')
-
     # Create a folder for saving if it does not already exist.
     if not os.path.isdir(save_directory):
         os.mkdir(save_directory)
@@ -148,34 +142,45 @@ def training_code(data_directory, save_directory):
     sinus_rhythm = set(['426783006'])
     classes, weights = load_weights(weights_file)
     classes_short = ["AF","AFL","BBB","Brady","CLBBB/LBBB","RBBB/CRBBB","IAVB","IRBBB","LAD","LAnFB","LPR","LQRSV","LQT","NSIVCB","NSR","PAC/SVPB","PR","PRWP","PVC/VPB","QAb","RAD","SA","SB","STach","TAb","TInv"]
-    lbls = load_labels(header_files, classes)
 
-    # Checking how many recordings doesn't have any scored labels
-    get_no_scored_labels(lbls)
-
-    # Making directories for preprocessed data
-    os.mkdir("data_processed")
-    os.mkdir("labels_processed")
-
-    # Preprocessing and saving the data
-    print("Preprocessing and saving the data")
     cnt = 0
-    for i in tqdm(range(len(recording_files))):
-        if np.sum(lbls[i])==0:
-            continue
-        recording = load_recording(recording_files[i])
-        header = load_header(header_files[i])
-        fs = get_frequency(header)
-        recording = get_transformed_data(recording,fs)
-        flag = 1
-        for j in range(len(recording)):
-            if(np.isnan(recording[j]).any()):
-                flag = 0
-                break
-        if flag:
-            np.save(os.path.join("data_processed", str(cnt)), recording)
-            np.save(os.path.join("labels_processed", str(cnt)), lbls[i])
-            cnt = cnt + 1
+    if not os.path.isdir("data_processed"):
+        print('Finding header and recording files...')
+        header_files, recording_files = find_challenge_files(data_directory)
+        num_recordings = len(recording_files)
+        if not num_recordings:
+            raise Exception('No data was provided.')
+        lbls = load_labels(header_files, classes)
+
+        # Checking how many recordings doesn't have any scored labels
+        get_no_scored_labels(lbls)
+
+        # Making directories for preprocessed data
+        os.mkdir("data_processed")
+        os.mkdir("labels_processed")
+
+        # Preprocessing and saving the data
+        print("Preprocessing and saving the data")
+        for i in tqdm(range(len(recording_files))):
+            if np.sum(lbls[i])==0:
+                continue
+            recording = load_recording(recording_files[i])
+            header = load_header(header_files[i])
+            fs = get_frequency(header)
+            recording = get_transformed_data(recording,fs)
+            flag = 1
+            for j in range(len(recording)):
+                if(np.isnan(recording[j]).any()):
+                    flag = 0
+                    break
+            if flag:
+                np.save(os.path.join("data_processed", str(cnt)), recording)
+                np.save(os.path.join("labels_processed", str(cnt)), lbls[i])
+                cnt = cnt + 1
+    else :
+        list_files = os.listdir("data_processed")
+        cnt = len(list_files)
+    
     print("There are a total of {:d} recording for Train Valid and Test".format(cnt))
 
 

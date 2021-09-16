@@ -5,6 +5,8 @@ from scipy.signal import decimate, resample_poly
 from torch.utils.data import Dataset
 import torch
 import os
+import warnings
+
 # Filtering method
 
 def _norm_freq(frequency=None, sampling_rate=500.):
@@ -77,6 +79,7 @@ def pad_sequence(x,length):
 
 # Preprocessing method
 def get_transformed_data(ecg_raw,fs):
+    warnings.filterwarnings("ignore")
     ecg_filtered = []
     for i in range(len(ecg_raw)):
       x = filter_ecg(ecg_raw[i],500)
