@@ -2,6 +2,7 @@
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from scipy.io import loadmat
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -11,6 +12,28 @@ from helper_code import*
 from transformer import*
 from dataset import*
 from evaluate_model import*
+
+# Focal Loss Function
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets,reduce=False)
+        else:
+            BCE_loss = F.binary_cross_entropy(inputs, targets, reduce=False)
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
 
 
 def train(ep, model, optimizer, train_loader, device, criterion):
@@ -220,8 +243,8 @@ def training_code(data_directory, save_directory):
     train_dl = DataLoader(train_dataset, batch_size=batch_size, shuffle= True,num_workers=4)
     valid_dl = DataLoader(valid_dataset, batch_size=batch_size, shuffle= False,num_workers=4)
     test_dl = DataLoader(test_dataset, batch_size=batch_size, shuffle= False,num_workers=4)
-    criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.98), eps=1e-9)
+    criterion = FocalLoss(logits=True)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.98), eps=1e-9)
 
     # Training
     print("Starting the training Process")
